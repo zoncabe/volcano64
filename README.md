@@ -1,6 +1,6 @@
-# Engine 64
+# Volcano 64
 
-Framework type game engine. Written in C on top of the open source SDK [Libdragon](https://github.com/DragonMinded/libdragon) and the 3D ucode & library [Tiny3D](https://github.com/HailToDodongo/tiny3d).
+Framework type game engine. Written in C on top of the open source SDK [Libdragon](https://github.com/DragonMinded/libdragon).
 
 ### Features
 
@@ -47,7 +47,6 @@ Spring arm third person camera: exponential convergence on yaw and pitch with ve
 ### Building
 
 1. Install the Libdragon toolchain following their [installation guide](https://github.com/DragonMinded/libdragon/wiki/Installing-libdragon).
-2. Build and install [Tiny3D](https://github.com/HailToDodongo/tiny3d/blob/main/README.md#usage).
 3. From the project root run:
 
 ```
