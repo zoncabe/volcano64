@@ -65,7 +65,7 @@ COLLISION_IMPORTER = $(BUILD_DIR)/tools/collision_importer
 $(COLLISION_IMPORTER): $(ENGINE_DIR)/tools/collision_importer/main.c
 	@mkdir -p $(dir $@)
 	@echo "    [CC] $<"
-	gcc -O2 -o $@ $< -I$(T3D_INST)/tools/gltf_importer/src/lib -lm
+	gcc -O2 -o $@ $< -I$(ENGINE_DIR)/tools/model_importer/src/lib -lm
 
 # No mesh names after the output: every mesh in the file becomes collision.
 filesystem/collision/%.collision: assets/models/%.glb $(COLLISION_IMPORTER)
