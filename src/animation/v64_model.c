@@ -320,10 +320,16 @@ void model_bvhQueryFrustum(const Bvh *bvh, const Frustum *frustum) {
 
 static ModelState dummyState;
 static const mg_uniform_t *texturing_uniform;
+static const mg_uniform_t *matrices_uniform;
 
 void model_setTexturingUniform(const mg_uniform_t *uniform)
 {
   texturing_uniform = uniform;
+}
+
+void model_setMatricesUniform(const mg_uniform_t *uniform)
+{
+  matrices_uniform = uniform;
 }
 
 static void set_texture(Material *mat, rdpq_tile_t tile, ModelDrawConf *conf)
@@ -488,19 +494,32 @@ void model_drawMaterial(Material *mat, ModelState *state)
   }
 }
 
-void model_drawObject(const Object *object, const mgfx_matrix_t *boneMatrices)
+void model_drawObject(const Object *object, const mgfx_matrices_t *palette)
 {
-  /* TODO(skinning): the bone palette rides mg_input_assembly_parms_t
-   * (mtx_indices + matrices + matrix uniform); wired up in the character
-   * phase together with the palette layout. */
-  (void)boneMatrices;
+  mg_input_assembly_parms_t assembly = {
+    .primitive_topology = MG_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+  };
+
+  /* Skinning the magma way: a bone index per vertex, and before each run of
+   * vertices on the same bone the input assembly loads that bone's entry of
+   * the palette into the matrices uniform. The vertices are stored in bone
+   * space (tiny3d's importer layout), so the entry is the full mvp/mv of
+   * that bone and no inverse bind is involved. The load is not inline: the
+   * palette pointer is baked into the recorded block, so the caller keeps
+   * one palette per frame buffer and records a block against each. */
+  if (object->boneIndices && palette) {
+    assert(matrices_uniform);
+    assembly.mtx_indices        = object->boneIndices;
+    assembly.mtx_indices_stride = sizeof(uint8_t);
+    assembly.matrices           = palette;
+    assembly.matrices_stride    = sizeof(mgfx_matrices_t);
+    assembly.matrix_uniform     = *matrices_uniform;
+  }
 
   mg_bind_vertex_buffer(object->vertices);
 
   mg_draw_begin();
-    mg_draw_indexed(&(mg_input_assembly_parms_t){
-      .primitive_topology = MG_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-    }, object->indices, object->indexCount, 0);
+    mg_draw_indexed(&assembly, object->indices, object->indexCount, 0);
   mg_draw_end();
 }
 

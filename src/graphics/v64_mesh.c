@@ -229,13 +229,13 @@ static bool mesh_filterPart(void *user, const Object *obj)
 	return true;
 }
 
-static rspq_block_t *mesh_recordPart(Mesh *mesh, MeshPartFilter *filter, const mgfx_matrix_t *matrices)
+static rspq_block_t *mesh_recordPart(Mesh *mesh, MeshPartFilter *filter, const mgfx_matrices_t *palette)
 {
 	rspq_block_begin();
 	model_drawCustom(mesh->model, (ModelDrawConf){
 		.userData = filter,
 		.filterCb = mesh_filterPart,
-		.matrices = matrices,
+		.matrices = palette,
 	});
 	return rspq_block_end();
 }
@@ -249,26 +249,72 @@ void mesh_recordObjects(Mesh *mesh)
 		it.object->userBlock = rspq_block_end();
 	}
 
-	mesh->dl       = NULL;
-	mesh->dl_count = 0;
-	mesh->visible  = 1;
+	mesh->dl         = NULL;
+	mesh->dl_count   = 0;
+	mesh->dl_buffers = 1;
+	mesh->palette    = NULL;
+	mesh->visible    = 1;
 }
 
-void mesh_recordParts(Mesh *mesh, const char *const *names, uint8_t count, const mgfx_matrix_t *matrices)
+void mesh_recordParts(Mesh *mesh, const char *const *names, uint8_t count)
 {
 	MeshPartFilter filter = { .names = names, .count = count };
+	uint16_t bones = 0;
+
+	/* The draw bakes the palette address into the block, so a skinned mesh
+	   needs a block per frame buffer, each over its own run of the palette. */
+	mesh->palette    = NULL;
+	mesh->dl_buffers = 1;
+	if (mesh->skeleton) {
+		bones = mesh->skeleton->skeletonRef->boneCount;
+		mesh->palette = malloc_uncached(sizeof(mgfx_matrices_t) * FB_COUNT * bones);
+		assert(mesh->palette);
+		mesh->dl_buffers = FB_COUNT;
+	}
 
 	mesh->dl_count = 1 + count;
-	mesh->dl = malloc(sizeof(rspq_block_t *) * mesh->dl_count);
+	mesh->dl = malloc(sizeof(rspq_block_t *) * mesh->dl_count * mesh->dl_buffers);
 	assert(mesh->dl);
 
-	filter.name = NULL;
-	mesh->dl[0] = mesh_recordPart(mesh, &filter, matrices);
+	for (int part = 0; part < mesh->dl_count; part++) {
+		filter.name = part == 0 ? NULL : names[part - 1];
 
-	for (int i = 0; i < count; i++) {
-		filter.name = names[i];
-		mesh->dl[1 + i] = mesh_recordPart(mesh, &filter, matrices);
+		for (int fb = 0; fb < mesh->dl_buffers; fb++) {
+			const mgfx_matrices_t *palette = mesh->palette ? mesh->palette + fb * bones : NULL;
+			mesh->dl[part * mesh->dl_buffers + fb] = mesh_recordPart(mesh, &filter, palette);
+		}
 	}
 
 	mesh->visible = 1;
+}
+
+void mesh_updatePalette(Mesh *mesh, const Viewport *viewport, uint8_t fb_index)
+{
+	if (mesh->palette == NULL) return;
+
+	const Armature *armature = mesh->skeleton;
+	uint16_t bones = armature->skeletonRef->boneCount;
+
+	/* The frame's part of the product is shared by every bone: view and
+	   view-projection over the model matrix, once. Then one product per bone
+	   for each of the two matrices the uniform carries. The bone matrices
+	   are model space already (armature_update composed the parent chain). */
+	const Matrix4 *model = &mesh->matrix_buffer[fb_index];
+	Matrix4 view_model, view_projection_model;
+	matrix4_product(&view_model, &viewport->view, model);
+	matrix4_product(&view_projection_model, &viewport->view_projection, model);
+
+	mgfx_matrices_t *entry = mesh->palette + fb_index * bones;
+
+	for (uint16_t b = 0; b < bones; b++) {
+		Matrix4 mv, mvp;
+		matrix4_product(&mv,  &view_model,            &armature->bones[b].matrix);
+		matrix4_product(&mvp, &view_projection_model, &armature->bones[b].matrix);
+
+		mgfx_get_matrices(&entry[b], &(mgfx_matrices_parms_t){
+			.model_view_projection = mvp.m[0],
+			.model_view            = mv.m[0],
+			.normal                = mv.m[0],
+		});
+	}
 }

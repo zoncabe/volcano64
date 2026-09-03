@@ -37,9 +37,11 @@ Entity *entity_create(const EntityDef *def)
 	assert(entity->mesh->matrix_buffer);
 	matrix4_setIdentity(&entity->mesh->matrix_buffer[0]);
 
-	entity->mesh->skeleton  = NULL;
-	entity->mesh->deform    = NULL;
-	entity->mesh->draw_conf = NULL;
+	entity->mesh->skeleton   = NULL;
+	entity->mesh->deform     = NULL;
+	entity->mesh->draw_conf  = NULL;
+	entity->mesh->palette    = NULL;
+	entity->mesh->dl_buffers = 1;
 	mesh_initBounds(entity->mesh);
 
 	if (def->character) {
@@ -63,9 +65,10 @@ Entity *entity_create(const EntityDef *def)
 
 void entity_delete(Entity *entity)
 {
-	for (int i = 0; i < entity->mesh->dl_count; i++)
+	for (int i = 0; i < entity->mesh->dl_count * entity->mesh->dl_buffers; i++)
 		rspq_block_free(entity->mesh->dl[i]);
 	free(entity->mesh->dl);
+	if (entity->mesh->palette) free_uncached(entity->mesh->palette);
 	if (entity->mesh->deform) {
 		meshDeform_delete(entity->mesh->deform);
 		free(entity->mesh->deform);

@@ -146,10 +146,10 @@ void scene3d_load(Scene3DDef *def)
 					character_equipWeapon(character, slot, weapons->weapon[slot]);
 		}
 
-		if (!entity_def.character) {
-			for (int fb = 0; fb < FB_COUNT; fb++)
-				mesh_setMatrix(entity->mesh, &entity->transform, fb);
-		}
+		/* Every copy of the matrix, characters included: the palette reads
+		   the frame's copy on the first render, before any update wrote it. */
+		for (int fb = 0; fb < FB_COUNT; fb++)
+			mesh_setMatrix(entity->mesh, &entity->transform, fb);
 
 		placed->entity = entity;
 		scene.entity[scene.entity_count++] = entity;

@@ -14,11 +14,15 @@ typedef struct {
 
 typedef struct {
 
-	const char      *path;   /* NULL = unused slot (0 is: rdpq font ids start at 1) */
+	const char      *path;   /* NULL = unused slot (0 is: rdpq reserves font id 0) */
 	const FontStyle *style;
 	uint8_t          style_count;
 
 } FontDef;
+
+/* The game's font ids are rdpq ids, counting up from 1. The engine's own
+   fonts count down from the top of rdpq's 256 slots, so the two never meet. */
+#define DEBUG_FONT 255
 
 typedef struct {
 	uint8_t                  font;

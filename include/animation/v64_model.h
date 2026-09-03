@@ -343,7 +343,10 @@ typedef struct {
 	ModelTileCb tileCb; /* callback to modify tile settings */
 	ModelFilterCb filterCb; /* callback to filter parts */
 	ModelDynTextureCb dynTextureCb; /* callback to set dynamic textures, aka "Texture Reference" in fast64 */
-	const mgfx_matrix_t *matrices; /* bone matrix palette for skinned draws */
+	/* Bone palette for skinned draws: one full matrices uniform (mvp, mv,
+	   normal) per bone, indexed by the object's per-vertex bone index. NULL
+	   for non-skinned draws. */
+	const mgfx_matrices_t *matrices;
 } ModelDrawConf;
 
 /*
@@ -382,6 +385,10 @@ static inline ModelState model_stateCreate(void)
  * normalized texcoords into texel coordinates. */
 void model_setTexturingUniform(const mg_uniform_t *uniform);
 
+/* Same for the matrices uniform: skinned objects load one palette entry per
+ * bone batch through it while they draw. */
+void model_setMatricesUniform(const mg_uniform_t *uniform);
+
 /* Draws a model with a custom configuration. */
 void model_drawCustom(const Model* model, ModelDrawConf conf);
 
@@ -397,10 +404,11 @@ static inline void model_draw(const Model* model)
 
 /*
  * Draws an object in a model directly: only the mesh part, no material or
- * texture settings. Pass the bone matrix palette for skinned meshes, NULL
- * for non-skinned. Use 'model_drawMaterial' before this to change materials.
+ * texture settings. Pass the bone palette for skinned meshes (see
+ * ModelDrawConf.matrices), NULL for non-skinned. Use 'model_drawMaterial'
+ * before this to change materials.
  */
-void model_drawObject(const Object *object, const mgfx_matrix_t *boneMatrices);
+void model_drawObject(const Object *object, const mgfx_matrices_t *palette);
 
 /*
  * Draws/applies a material of an object, before 'model_drawObject'.

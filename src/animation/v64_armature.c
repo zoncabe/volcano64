@@ -20,6 +20,10 @@ Armature armature_createBuffered(const Model *model, int bufferCount) {
   };
 
   armature_reset(&armature);
+
+  /* Compose the rest pose right away: the bone matrices are read in float
+   * by the palette, and uninitialised memory there traps the FPU. */
+  armature_update(&armature);
   return armature;
 }
 

@@ -87,15 +87,12 @@ Character *character_create(const CharacterDef *def, Entity *entity)
 	/* Part 0 = body, parts 1..N = one per weapon object, def order.
 	   Only the body starts visible; equipping turns weapon bits on.
 	   No weapons: the whole model is the single skinned part. No skeleton
-	   either: per-object blocks, exactly what a prop gets. */
-	/* TODO(magma): tiny3d recorded a segment placeholder here and rebound the
-	   buffered skeleton every frame through the segment table. Magma has no
-	   segments; the draw path must fetch armature_getMatrices() per frame
-	   instead. Wired up together with the magma draw. */
+	   either: per-object blocks, exactly what a prop gets. The skeleton is
+	   already on the mesh, so the parts record against its bone palette. */
 	if (def->weapons_def)
-		mesh_recordParts(entity->mesh, def->weapons_def->mesh, def->weapons_def->mesh_count, NULL);
+		mesh_recordParts(entity->mesh, def->weapons_def->mesh, def->weapons_def->mesh_count);
 	else if (def->animation_def)
-		mesh_recordParts(entity->mesh, NULL, 0, NULL);
+		mesh_recordParts(entity->mesh, NULL, 0);
 	else
 		mesh_recordObjects(entity->mesh);
 

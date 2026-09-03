@@ -3,6 +3,7 @@
 #include <libdragon.h>
 
 #include "debug/v64_debug.h"
+#include "graphics/v64_font.h"
 
 
 #define DEBUG_UI_LINES     8
@@ -20,7 +21,7 @@ static bool debug_show_fps;
 
 void debugUI_init(void)
 {
-	rdpq_text_register_font(FONT_BUILTIN_DEBUG_MONO,
+	rdpq_text_register_font(DEBUG_FONT,
 	                        rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO));
 	debug_active = true;
 }
@@ -53,14 +54,14 @@ void debugUI_draw(void)
 
 	for (int i = 0; i < DEBUG_UI_LINES; i++) {
 		if (debug_line[i][0] == '\0') continue;
-		rdpq_text_print(NULL, FONT_BUILTIN_DEBUG_MONO,
+		rdpq_text_print(NULL, DEBUG_FONT,
 		                DEBUG_UI_X, DEBUG_UI_Y + i * DEBUG_UI_STEP,
 		                debug_line[i]);
 	}
 
 	/* Top right, first line. */
 	if (debug_show_fps) {
-		rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 270.0f, DEBUG_UI_Y,
+		rdpq_text_printf(NULL, DEBUG_FONT, 270.0f, DEBUG_UI_Y,
 		                 "%.1f", display_get_fps());
 		debug_show_fps = false;
 	}

@@ -18,12 +18,21 @@ typedef struct {
 } MeshBound;
 
 typedef struct {
-	rspq_block_t **dl;            /* one block per part */
-	uint8_t        dl_count;
+	/* Recorded parts, dl_buffers blocks each, part-major: see mesh_partBlock.
+	   A static mesh records one block per part; a skinned one records one
+	   per frame buffer, since each block bakes in the palette it reads. */
+	rspq_block_t **dl;
+	uint8_t        dl_count;      /* parts */
+	uint8_t        dl_buffers;    /* blocks per part: 1, or FB_COUNT when skinned */
 	uint8_t        visible;       /* bitmask: parts to render */
 	Matrix4       *matrix_buffer; /* model matrix per fb; NULL = identity baked in dl */
 	Model      *model;
 	Armature   *skeleton;      /* NULL = static mesh (set by character_create) */
+
+	/* Bone palette of a skinned mesh: FB_COUNT runs of one matrices uniform
+	   per bone, composed on the CPU each frame (mesh_updatePalette) and read
+	   by the ucode through the recorded draw. Uncached. NULL = not skinned. */
+	mgfx_matrices_t *palette;
 
 	/* Where the vertices come from when something else drives them. The
 	   binding lives in its own module, so the mesh only needs to know it is
@@ -62,9 +71,21 @@ void mesh_setMatrixFromBody(Mesh *mesh, const Vector3 *position, const Quaternio
                             const Vector3 *scale, uint8_t fb_index);
 
 /* Records part 0 (every object not in the list) plus one part per named
-   object, in list order. Skinned models get their bone palette at draw time,
-   not here; pass NULL as matrices for static ones. */
-void mesh_recordParts(Mesh *mesh, const char *const *names, uint8_t count, const mgfx_matrix_t *matrices);
+   object, in list order. With a skeleton set, allocates the bone palette and
+   records every part once per frame buffer against its run of it. */
+void mesh_recordParts(Mesh *mesh, const char *const *names, uint8_t count);
+
+/* The block to run for a part this frame. */
+static inline rspq_block_t *mesh_partBlock(const Mesh *mesh, uint8_t part, uint8_t fb_index)
+{
+	return mesh->dl[part * mesh->dl_buffers + (mesh->dl_buffers > 1 ? fb_index : 0)];
+}
+
+/* Writes this frame's palette run: for every bone, the frame's view and
+   projection over the model matrix over the bone's model-space matrix, in
+   the uniform layout the ucode loads per bone batch. Nothing for a mesh
+   without a palette. */
+void mesh_updatePalette(Mesh *mesh, const Viewport *viewport, uint8_t fb_index);
 
 /* Records one block per model object, in the object's own userBlock. */
 void mesh_recordObjects(Mesh *mesh);

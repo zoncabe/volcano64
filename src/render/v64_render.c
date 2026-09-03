@@ -63,6 +63,7 @@ void render_init(void)
 	render_uniform_fog       = mg_pipeline_get_uniform(render_pipeline, MGFX_BINDING_FOG);
 
 	model_setTexturingUniform(render_uniform_texturing);
+	model_setMatricesUniform(render_uniform_matrices);
 }
 
 
@@ -138,6 +139,10 @@ static void render_setScene3DContext(RenderContext *ctx, const Scene3D *s, const
 		mesh_updateDeform(mesh, fb_index);
 		mesh_bindDeformFrame(mesh, fb_index);
 
+		/* A skinned mesh's pose is in its bones by now: write this frame's
+		   palette, which is what its recorded block reads. */
+		mesh_updatePalette(mesh, viewport, fb_index);
+
 		if (mesh->dl_count == 0) {
 			assert(ctx->object_count < RENDER_MAX_3D_ELEMENTS);
 			ctx->object[ctx->object_count++] = (Element3D){ NULL, mesh->model, matrix, skel, mesh->draw_conf };
@@ -148,7 +153,7 @@ static void render_setScene3DContext(RenderContext *ctx, const Scene3D *s, const
 			if (!(mesh->visible & (1u << part))) continue;
 
 			assert(ctx->object_count < RENDER_MAX_3D_ELEMENTS);
-			ctx->object[ctx->object_count++] = (Element3D){ mesh->dl[part], NULL, matrix, skel };
+			ctx->object[ctx->object_count++] = (Element3D){ mesh_partBlock(mesh, part, fb_index), NULL, matrix, skel };
 		}
 	}
 }
@@ -254,9 +259,6 @@ void render(RenderContext *ctx, int *fb_index)
 		for (int i = 0; i < ctx->object_count; i++) {
 			Element3D *obj = &ctx->object[i];
 
-			/* TODO(magma): skinned meshes load their bone palette with the
-			   skinned draw; wired up in the character phase. */
-
 			if (first || obj->matrix != loaded) {
 				render_loadMatrices(viewport, obj->matrix);
 				loaded = obj->matrix;
@@ -265,6 +267,10 @@ void render(RenderContext *ctx, int *fb_index)
 
 			if (obj->dl) {
 				rspq_block_run(obj->dl);
+				/* A skinned block loads the uniform per bone batch, so what
+				   is in it afterwards is the last bone, not the mesh: the
+				   next element reloads whatever it needs. */
+				if (obj->skeleton) first = true;
 				continue;
 			}
 
